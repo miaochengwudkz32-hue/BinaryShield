@@ -1,0 +1,15 @@
+# --- 构建产物（由 build.ps1 重新生成，不纳入版本库）---
+src/dotnet/module_1a/module_1a.exe
+src/dotnet/module_1a/*.pdb
+tests/test_files/sample.dll
+
+# --- 测试运行时输出 ---
+tests/test_files/*.output.json
+
+# --- 系统 / 编辑器杂项 ---
+Thumbs.db
+desktop.ini
+.vs/
+*.user
+src/dotnet/module_1b/module_1b.exe
+src/dotnet/module_1c/module_1c.exe
