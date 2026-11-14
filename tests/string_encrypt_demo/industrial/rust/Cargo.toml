@@ -1,0 +1,15 @@
+[package]
+name = "industrial_demo_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# obfstr from GitHub, pinned to the commit used in the earlier demo (see ../../../../dependencies.md).
+obfstr = { git = "https://github.com/CasualX/obfstr", rev = "9e56c1938dfd3bd65fe305fbafcb57394c701356", optional = true }
+
+[features]
+default = ["obf"]
+# Normal build (default): obfstr is compiled in and the strings are obfuscated.
+obf = ["dep:obfstr"]
+# Control build: plain string literals. Build with: cargo build --release --no-default-features --features plain
+plain = []

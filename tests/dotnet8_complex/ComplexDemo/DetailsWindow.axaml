@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ComplexDemo.DetailsWindow"
+        Title="Customer details"
+        Width="360" Height="240"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="20" Spacing="10">
+    <TextBlock x:Name="TxtDetailName" Text="{Binding Name}" FontSize="18"/>
+    <TextBlock Text="{Binding Region, StringFormat='Region: {0}'}"/>
+    <TextBlock Text="{Binding Balance, StringFormat='Balance: {0:N2}'}"/>
+    <Button x:Name="BtnDetailsClose" Content="Close" HorizontalAlignment="Right" Padding="16,6" Margin="0,16,0,0" Click="OnCloseClick"/>
+  </StackPanel>
+</Window>

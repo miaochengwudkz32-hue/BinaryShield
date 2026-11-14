@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+        x:Class="ComplexDemo.MainWindow"
+        Title="ComplexDemo"
+        Width="900" Height="640"
+        WindowStartupLocation="CenterScreen">
+  <DockPanel Margin="12">
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Opacity="0.7" Margin="0,8,0,0"/>
+    <TabControl x:Name="MainTabs" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
+
+      <TabItem x:Name="TabCustomers" Header="Customers">
+        <DockPanel Margin="0,12,0,0">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+            <Button x:Name="BtnDetails" Content="Details..." Command="{Binding ShowDetailsCommand}" Padding="16,6"/>
+            <TextBlock Text="{Binding SelectedCustomer.Name, StringFormat='Selected: {0}'}" VerticalAlignment="Center"/>
+          </StackPanel>
+          <dg:DataGrid x:Name="CustomerGrid"
+                       ItemsSource="{Binding FilteredCustomers}"
+                       SelectedItem="{Binding SelectedCustomer, Mode=TwoWay}"
+                       AutoGenerateColumns="False"
+                       IsReadOnly="True"
+                       GridLinesVisibility="Horizontal">
+            <dg:DataGrid.Columns>
+              <dg:DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+              <dg:DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="120"/>
+              <dg:DataGridTextColumn Header="Balance" Binding="{Binding Balance, StringFormat='{}{0:N2}'}" Width="140"/>
+            </dg:DataGrid.Columns>
+          </dg:DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem x:Name="TabFilter" Header="Filter">
+        <StackPanel Margin="0,12,0,0" Spacing="12">
+          <TextBlock Text="{Binding FilterRegion, StringFormat='Current filter: {0}'}"/>
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Button x:Name="BtnAll" Content="All" Command="{Binding FilterCommand}" CommandParameter="All" Padding="16,6"/>
+            <Button x:Name="BtnNorth" Content="North" Command="{Binding FilterCommand}" CommandParameter="North" Padding="16,6"/>
+            <Button x:Name="BtnSouth" Content="South" Command="{Binding FilterCommand}" CommandParameter="South" Padding="16,6"/>
+          </StackPanel>
+        </StackPanel>
+      </TabItem>
+
+      <TabItem x:Name="TabCounter" Header="Counter">
+        <StackPanel Margin="0,12,0,0" Spacing="12">
+          <Button x:Name="BtnAdd" Content="Add 1" Command="{Binding IncrementCommand}" Padding="16,6" HorizontalAlignment="Left"/>
+          <TextBlock x:Name="TxtCount" Text="{Binding ClickCount, StringFormat='Count: {0}'}"/>
+        </StackPanel>
+      </TabItem>
+
+    </TabControl>
+  </DockPanel>
+</Window>

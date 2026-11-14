@@ -2,6 +2,8 @@
 
 本文件说明如何构建、运行和理解 BinaryShield。快速概览见 [README.md](README.md)。
 
+BinaryShield 只调用 ConfuserEx2，适用于 .NET Framework 4.x 程序。.NET 8 程序使用 Obfuscar，需要手动运行，说明见第 13 节。
+
 ## 1. 前提条件
 
 | 项目 | 要求 |
@@ -208,26 +210,91 @@ module_1b.exe "C:\path\to\manifest.json" "C:\path\to\config.crproj"
 - 排除范围内的代码不受保护，基础规则也去掉了 `ref proxy` 与 `resources`。保护强度因此低于全部开启。
 - 输入目录中的所有依赖都会原样复制到 `protected\`，不做保护。
 - `work\` 目录始终保留，会占用与输入相当的磁盘空间。
-- 只在一个 Avalonia 11 示例程序（.NET Framework 4.7，VS 2022 编译）上做过端到端验证。界面能加载并显示；滚动、点击等交互，以及真实应用程序，尚未验证。
+- 只在一个 Avalonia 11 示例程序（.NET Framework 4.7，VS 2022 编译）上做过端到端验证。界面能加载并显示；滚动、点击等交互，以及目标程序的真实代码，尚未验证。
 - 进程树终止与超时分支没有自动化测试。
 - 只在 Windows 上测试。
 
-## 13. 相关文件
+## 13. Obfuscar（.NET 8 程序）
+
+BinaryShield 目前只调用 ConfuserEx2，不能处理 .NET 8 程序。2026-11-02 的实测中，ConfuserEx2 1.6.0 连 `preset="none"`（不做任何保护）都失败，报 `TypeResolveException`（找不到 `System.Runtime 8.0.0.0`），原因是推断的，未找到变通方法。
+
+.NET 8 程序目前用 **Obfuscar 3.0.0-beta.22** 手动保护。它还没有集成进 `module_1c`（计划中的 Module 2A）。
+
+### 13.1 与 ConfuserEx2 的区别
+
+| 项目 | ConfuserEx2 1.6.0 | Obfuscar 3.0.0-beta.22 |
+|---|---|---|
+| 支持的运行时 | .NET Framework 4.x | .NET 8（全局工具运行在 .NET 8 上） |
+| 保护项 | 多：控制流、反调试、反篡改、字符串加密、改名等（BinaryShield 的规则见第 9 节） | 较少：主要是改名和字符串隐藏（我们在测试中观察到的范围） |
+| 配置方式 | 由 BinaryShield 生成 `.crproj` | 手写 XML（`Obfuscator` 根元素，`Module`、`SkipNamespace` 等） |
+| 命令行 | `Confuser.CLI.exe` | `dotnet GlobalTools.dll <config.xml>` |
+| 版本状态 | 1.6.0 发布于 2022-01，之后的维护状态未知 | 3.0 仍是 beta。稳定线是 2.2.x（面向 .NET Framework，net462） |
+| 许可证 | 见上游仓库 | MIT |
+| 在本项目中的验证 | 对 .NET Framework 4.7 的测试程序做过端到端验证（第 12 节） | 对 .NET 8 的测试程序做过验证（见 13.5） |
+
+### 13.2 什么时候用哪个
+
+- 目标是 **.NET Framework 4.x**：用 ConfuserEx2，通过 BinaryShield 运行。保护项更多。
+- 目标是 **.NET 8**：ConfuserEx2 1.6.0 无法处理，只能用 Obfuscar 3.0 beta。它的保护项较少，不要把它当作强保护。
+- 两者都要排除 Avalonia 命名空间（`Avalonia*` 与 `CompiledAvaloniaXaml*`）。Avalonia 的界面代码按名字反射访问，被改名或加密后界面会崩溃。
+
+### 13.3 .NET 8 程序怎么用
+
+1. **获取 Obfuscar**：NuGet 包 `Obfuscar.GlobalTool` 3.0.0-beta.22。核对 `.nupkg` 的 SHA256（见 `dependencies.md`），解压后使用 `tools/net8.0/any/GlobalTools.dll`。
+2. **编译程序**：`dotnet build -c Release`，生成 `bin\Release\net8.0\`。
+3. **写配置文件**（见下面的示例）。路径必须是绝对路径。
+4. **运行**：
+
+   ```bash
+   dotnet C:\tools\obfuscar\GlobalTools.dll C:\build\obf.xml
+   ```
+
+   成功时输出 `Done.` 并以退出码 0 结束。
+5. **组装运行目录**：复制 `bin\Release\net8.0\` 的全部文件，用输出目录中的同名 DLL 替换原来的 DLL，删除不再匹配的 `.pdb`。
+6. **运行并验证**：至少在目标平台上启动程序，检查界面、绑定和点击。
+
+配置示例：
+
+```xml
+<?xml version='1.0'?>
+<Obfuscator>
+  <!-- 使用绝对路径。Obfuscar 3.0 beta 不支持 $(...) 变量替换。 -->
+  <Var name="InPath" value="C:\build\bin\Release\net8.0" />
+  <Var name="OutPath" value="C:\build\obf_out" />
+  <Module file="C:\build\bin\Release\net8.0\YourApp.dll">
+    <SkipNamespace name="Avalonia*" />
+    <SkipNamespace name="CompiledAvaloniaXaml*" />
+  </Module>
+</Obfuscator>
+```
+
+要点：
+
+- `InPath` 必须指向包含全部依赖 DLL 的目录。没有它，Obfuscar 只在配置文件所在目录查找依赖，报 `Unable to resolve dependency`。
+- `SkipNamespace` 的范围与 BinaryShield 的排除范围相同。
+- `KeepPublicApi` 默认为 true：公开类型和成员的名字保留，所以基于反射的 XAML 数据绑定仍然有效。
+- `HidePrivateApi` 默认为 true：私有方法会被改名。我们的测试中，私有事件处理方法（如 `OnButtonClick`）在保护后的 DLL 中找不到原名。
+- 运行时会输出 `.NET Core/.NET ... referenced assembly directory does not exist` 形式的警告（例如 `Microsoft.NETCore.App.Ref\6.0.0`）。它们不影响结果。
+
+### 13.4 Linux 部署
+
+- Obfuscar 只改写 IL，同一组托管 DLL 可以在 Linux 上运行，前提是运行时版本一致。
+- 原生库（例如 `libSkiaSharp.dll`）不能在 Linux 上用，需要换成 Linux 版本。
+- 测试 Ubuntu 没有 ICU（libicu）。测试中使用 `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`。真实部署要么安装 libicu，要么保留这个设置。
+
+### 13.5 已验证的范围与限制
+
+- 验证对象是我们自己写的测试程序（Avalonia 11.0.10，.NET 8）。包括 10,000 项的列表、数据绑定、按钮点击；另一个测试程序还包含 DataGrid、多标签页、MVVM 绑定和模态对话框。它们**不是**任何真实程序。
+- Windows：两个测试程序的保护版和原始版都通过了全部检查（个别运行中有一次因其他窗口抢走焦点而失败，记录在 `tests/dotnet8_complex/README.md`）。
+- Linux（WSL2 + WSLg）：多标签页测试程序的保护版和原始版都通过了 23 项检查。列表测试程序在 Linux 上未完全通过，原因见 `tests/dotnet8_avalonia/README.md`。
+- Obfuscar 3.0 仍是 beta，版本之间可能有变化。
+- 保护项很少，程序仍然可以被反编译。
+- 没有像 BinaryShield 那样的复核项。保护后需要自己运行、验证。
+- 目前是手动运行，还没有集成进 BinaryShield。
+
+## 14. 相关文件
 
 - `src/dotnet/module_1a/spec.md`、`src/dotnet/module_1b/spec.md`、`src/dotnet/module_1c/spec.md`：各模块的规格与决定点。
+- `the progress log`：开发记录与实测发现。
 - `dependencies.md`：依赖清单与校验值。
 - `tests/benchmarks/`：各模块的验收脚本（`powershell -ExecutionPolicy Bypass -File <脚本> -Confuser <路径>`）。
-
-## 14. 运行测试
-
-测试脚本需要一个样本程序集 `tests\test_files\sample.dll`（不随仓库提供）。用 `csc` 从源码编译：
-
-```bash
-%CSC% /nologo /target:library /out:tests\test_files\sample.dll tests\test_files\sample_src.cs
-```
-
-然后运行各模块的验收脚本，例如：
-
-```bash
-powershell -ExecutionPolicy Bypass -File tests\benchmarks\test_module_1c.ps1 -Confuser "C:\tools\ConfuserEx\Confuser.CLI.exe"
-```
