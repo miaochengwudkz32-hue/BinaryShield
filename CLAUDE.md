@@ -41,7 +41,7 @@ LIEF, not started) — and adds Avalonia-specific compatibility rules that exist
 
 **Why:**
 - ConfuserEx2 keeps its `normal` protection strength for .NET Framework 4.x. For .NET 8, ConfuserEx2 cannot process the assemblies, so **Obfuscar 3.0 beta is the protection engine for .NET 8 targets**. Its protection set is much thinner (mainly renaming and string hiding), so .NET 8 targets get less protection.
-- No porting: 1A–1C stay on .NET Framework 4.x. There is no .NET 8 rewrite, and no Obfuscar adapter (Module 2A) exists yet.
+- No porting: 1A–1C stay on .NET Framework 4.x. There is no .NET 8 rewrite. Module 2A (Obfuscar config generator) exists since 2026-11-20, but it only writes the config; Obfuscar is still run by hand, and 2A is not connected to 1C.
 - Protected managed assemblies are IL, so the same DLLs can run on Linux once the runtime matches.
 
 **Not planned:** porting 1A–1C to Linux; protecting native binaries on Linux (the v0.3 LIEF work stays separate).
@@ -64,12 +64,15 @@ He/
 ├── README.md              ← public description (for humans)
 ├── USAGE.md               ← detailed usage (for humans)
 ├── CLAUDE.md              ← this file (for Claude Code)
+├── deploy.ps1             ← builds the tools and assembles dist\ (flat layout for bs.exe; verifies ConfuserEx2 hashes)
 ├── dependencies.md        ← every library, version, and download method
 ├── src/
 │   ├── dotnet/
 │   │   ├── module_1a/     ← namespace classifier (dnlib, read-only)
 │   │   ├── module_1b/     ← ConfuserEx2 config generator
-│   │   └── module_1c/     ← CLI wrapper for full .NET pipeline
+│   │   ├── module_1c/     ← CLI wrapper for full .NET pipeline
+│   │   ├── module_2a/     ← Obfuscar 3.0 config generator (.NET 8 only; writes obf.xml, does not run Obfuscar)
+│   │   └── module_2b/     ← unified CLI bs.exe (analyze / protect; routes to 1C or to 2A + Obfuscar) — complete; benchmark passes (F2 and F3 run with a real ConfuserEx2)
 │   └── native/
 │       ├── module_3a/     ← PE metadata reader (LIEF) — not started
 │       └── module_3b/     ← ELF metadata reader (LIEF) — not started
@@ -153,7 +156,8 @@ Do not retry. Do not try a different approach without human confirmation.
 
 ### Avalonia rule
 Namespaces `Avalonia` and `Avalonia.*` and `CompiledAvaloniaXaml` and `CompiledAvaloniaXaml.*`
-must be classified as excluded. Pass this exclusion to the ConfuserEx2 config generator.
+must be classified as excluded. Pass this exclusion to the ConfuserEx2 config generator (1B) and to the Obfuscar config generator (2A).
+For Obfuscar, 2A uses one rule: `SkipNamespace rx="^(Avalonia|CompiledAvaloniaXaml)(\..*)?$"`. The wildcard `Avalonia*` would also skip `AvaloniaApp`, so it is not used (verified in the 2A benchmark, group P).
 For excluded namespaces, remove all 12 protections (see `src/dotnet/module_1b/spec.md` §3).
 The base rule removes `resources` and `ref proxy` (see `module_1b/spec.md` §6 for why).
 
@@ -197,10 +201,22 @@ Explain key decisions in plain language as you go.
 
 **Module 1C — COMPLETE ✅** — CLI wrapper (`module_1c.exe protect`). Commits: `fe065ac` (initial), `2ff8131`, `093da0c`, `38bac04`, `91d6685`, `b3aa69f` (review fixes; app config and dependency subdirectories copied; checks normalised). Benchmark all PASS.
 
+**Module 2A — COMPLETE ✅** — Obfuscar 3.0 config generator (`module_2a.exe`, .NET 8 only). Commits: `0f95de4` (initial), `4793a36` (DeepSeek review fixes).
+- Writes `obf.xml`: `InPath`/`OutPath`/`Module` are absolute; `OutPath` = `<config dir>\protected`; one `SkipNamespace rx` (Avalonia rule); `KeepPublicApi`/`HidePrivateApi` = true.
+- Benchmarks (`tests/benchmarks/test_module_2a.ps1`): **P 15/15** (Obfuscar 3.0.0-beta.22 accepts the regex rule and skips the right namespaces; control shows the anchors matter), **A 26/26** (module contract: exit codes, XML content, edge cases), **B 8/8** (end to end on a .NET 8 sample; protected output matches the plain output).
+- Not done: the pipeline does not run Obfuscar; 2A is not connected to 1C. STEP 8: DeepSeek review done (fixes in `4793a36`); Opus review skipped because Opus was repeatedly blocked by its safety filter, so the cross-review is one-sided.
+
+**Module 2B — COMPLETE ✅** — unified CLI `bs.exe` (`analyze`, `protect`). Source `src/dotnet/module_2b/Program.cs`; spec `src/dotnet/module_2b/spec.md`; deployment `deploy.ps1` (builds into `dist\`).
+- Routes by `targetFramework` from 1A: .NET Framework 4.x → 1C (called unchanged); .NET 8 → 1A → 2A → Obfuscar → checks n1–n6 (2B orchestrates).
+- Benchmark `tests/benchmarks/test_module_2b.ps1`: R 17/17, E 10/10, F 8/8. F2 (full .NET Framework run) and F3 (ConfuserEx2 failure mapped to 75) use the ConfuserEx2 1.6.0 binaries in `tools\ConfuserEx-1.6.0\`, downloaded 2026-11-20 and hash-checked against dependencies.md.
+- Not verified: process timeouts and tree kill; `analyze` without an output file; Linux packaging (out of scope).
+
+**Module 1A rule fix — DONE (`72bebc3`)**: 1A also marks `CompiledAvaloniaXaml` and `CompiledAvaloniaXaml.*` as `skip` (same as the Avalonia rule). Benchmark 6/6; 1B regression passes.
+
 **Real-app verification — PASSED** (`6ce4b71`, see the progress log 2026-11-01):
 - Test app: Avalonia 11.0.10, FluentTheme, .NET Framework 4.7, built with VS 2022 MSBuild (XAML precompiled).
 - Pipeline exit 0; checks a–f PASS; protected exe starts and shows its window.
-- Not yet verified: the target program's real DLL (not yet received); UI interaction (scrolling, clicks, data binding).
+- Not yet verified: the target program's real DLL (waiting for the target program); UI interaction (scrolling, clicks, data binding).
 
 **.NET 8 + Avalonia list test — PASSED on Windows (2026-11-12, see the progress log 2026-11-12; `tests/dotnet8_avalonia/`):**
 - Test app: Avalonia 11.0.10, .NET 8, ListBox with 10,000 items, data binding, button click, wheel scroll.
@@ -217,10 +233,12 @@ Explain key decisions in plain language as you go.
 - Linux deployment: target runtime and native libraries unverified (see Linux Deployment Plan).
 - ConfuserEx2 1.6.0 cannot process .NET 8 assemblies (tested 2026-11-02). The current toolchain (ConfuserEx2 + 1A–1C) is limited to .NET Framework 4.x.
 - .NET 8 with Obfuscar 3.0 beta: the Windows test app (ListBox with 10,000 items, data binding, button click, wheel scroll) passes with the SkipNamespace rules on Windows (2026-11-12). Linux: not passed yet (intermittent wheel count, see Current Status). Not tested: frame-rate smoothness, Avalonia virtualization internals, DataGrid, complex XAML, large applications, the target program's real code.
-- Obfuscar 3.0 beta is not integrated: `module_1c` only drives ConfuserEx2, so .NET 8 protection has to be run by hand until an adapter (Module 2A) exists.
+- Obfuscar 3.0 beta is run by hand: module_2a writes the config, but `module_1c` still only drives ConfuserEx2. A one-command .NET 8 pipeline (2A config + Obfuscar run + checks) does not exist yet.
 
 **Next task:**
+0a. STEP 8 for module_2a: DeepSeek review done; its four findings were verified and handled (`4793a36`). Opus review skipped (blocked by its safety filter). Open only if a second reviewer is wanted.
+0b. Module 2B (`bs.exe`): complete 2026-11-20 (R 17/17, E 10/10, F 8/8); `deploy.ps1` assembles `dist\`. Also decide whether the target program's .NET 8 DLL is run through 1A, then 2A, then Obfuscar.
 1. Linux verification of the test app is NOT passed yet. The app runs on Ubuntu (WSL2, WSLg), but the wheel check is intermittent in both builds. Decide: debug the input path (plan: send wheel events with xdotool inside Ubuntu), or accept it as a known flake. Script: `tests/dotnet8_avalonia/run_linux_test.ps1`.
-2. Report phase-1 completion only after the user confirms the scope. Passing the test app is not the same as passing the target program.
+2. Report phase-1 completion only after the user confirms the scope. The test app passing is not the same as the target program passing.
 3. The target program's full Avalonia run directory is still pending. Module 1A has read its metadata only (`targetFramework` .NET 8); it has not been protected or run. When it arrives: run Module 1A, protect it with Obfuscar using the same SkipNamespace rules, then test on Windows and Linux.
 Then decide whether to start native work (3A/3B, LIEF) for v0.3.

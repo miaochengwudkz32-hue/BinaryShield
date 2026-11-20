@@ -2,7 +2,8 @@
 //
 // 作用：读入一个 .NET 程序(.exe/.dll)，输出一份 JSON 清单——
 //       列出其中的 程序集 / 模块 / 类型 / 方法 / 字符串字面量(含 IL 偏移)，
-//       并把 Avalonia 命名空间标上 skip=true(正好 "Avalonia" 或以 "Avalonia." 开头)。
+//       并把 Avalonia 与 CompiledAvaloniaXaml 命名空间标上 skip=true
+//       (正好是 "Avalonia" / "CompiledAvaloniaXaml"，或以 "Avalonia." / "CompiledAvaloniaXaml." 开头)。
 //       只读取与分类，不修改任何内容(性质同 ILSpy / dnSpy 查看器)。使用锁定库 dnlib。
 //
 // 用法: module_1a <输入.dll/.exe> [输出.json] [--stdout]
@@ -108,7 +109,7 @@ namespace BinaryShield.Module1A
             {
                 typeCount++;
                 string ns = S(type.Namespace);
-                bool skip = IsAvalonia(ns);
+                bool skip = IsExcluded(ns);
                 if (skip) skippedTypeCount++;
 
                 JObj tObj = new JObj();
@@ -174,10 +175,16 @@ namespace BinaryShield.Module1A
             return root;
         }
 
-        private static bool IsAvalonia(string ns)
+        // Avalonia rule (CLAUDE.md): exactly "Avalonia" or "Avalonia.*", and exactly "CompiledAvaloniaXaml"
+        // or "CompiledAvaloniaXaml.*". Matching is case-sensitive, as .NET namespaces are.
+        // Names that merely start with these words (e.g. "AvaloniaApp") are NOT excluded.
+        private static bool IsExcluded(string ns)
         {
             if (string.IsNullOrEmpty(ns)) return false;
-            return ns == "Avalonia" || ns.StartsWith("Avalonia.", StringComparison.Ordinal);
+            return ns == "Avalonia"
+                || ns.StartsWith("Avalonia.", StringComparison.Ordinal)
+                || ns == "CompiledAvaloniaXaml"
+                || ns.StartsWith("CompiledAvaloniaXaml.", StringComparison.Ordinal);
         }
 
         private static string GetTargetFramework(ModuleDefMD mod)

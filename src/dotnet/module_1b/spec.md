@@ -84,7 +84,7 @@
 
 **F. 输出目录 — 已确认:`.crproj` 所在目录下的 `protected` 子目录**（`outputDir="protected"`，`baseDir="."`）。
 
-## 6. 实测结论（ConfuserEx2 1.6.0,在 scratchpad 中完成,未修改任何项目文件）
+## 6. 实测结论（ConfuserEx2 1.6.0,在 临时目录 中完成,未修改任何项目文件）
 
 | 测试 | 结果 |
 |---|---|
@@ -153,7 +153,7 @@ harden, invalid metadata, ref proxy, resources, typescramble, rename
 
 - XML 输出：`System.Xml.Linq`（.NET Framework 自带）。
 - JSON 解析：`System.Web.Extensions`（决定点 D，已确认）。
-- 外部工具：ConfuserEx2 1.6.0 CLI（`mkaring/ConfuserEx` release v1.6.0，`ConfuserEx-CLI.zip`，SHA256 `A00DE7CDDC740F7EDB1BAAB4C6C9073553DCC88F7E873D15B7FD34DDD33753D7`）。**本模块不调用它**；上面的实测只在 scratchpad 中运行，用于验证规则语法。
+- 外部工具：ConfuserEx2 1.6.0 CLI（`mkaring/ConfuserEx` release v1.6.0，`ConfuserEx-CLI.zip`，SHA256 `A00DE7CDDC740F7EDB1BAAB4C6C9073553DCC88F7E873D15B7FD34DDD33753D7`）。**本模块不调用它**；上面的实测只在 临时目录 中运行，用于验证规则语法。
 - 构建仍用 `csc.exe`，与 Module 1A 一致。
 
 ---

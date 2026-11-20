@@ -33,3 +33,8 @@ tests/string_encrypt_demo/rust/target/
 # --- tests/string_encrypt_demo/industrial: build outputs ---
 tests/string_encrypt_demo/industrial/out/
 tests/string_encrypt_demo/industrial/rust/target/
+tests/test_files/sample_xaml.dll
+src/dotnet/module_2a/module_2a.exe
+src/dotnet/module_2b/bs.exe
+dist/
+tools/ConfuserEx-1.6.0/

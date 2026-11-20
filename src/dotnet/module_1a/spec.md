@@ -1,6 +1,6 @@
 # Module 1A 规格文档 — .NET IL 解析器与命名空间分类器
 
-> 状态：**待人工确认**（按 README 工作流，第①步写完规格后需等待确认，再进入第②步写测试）
+> 状态：**已确认并实现**。2026-11-20 修订 Avalonia 规则（加入 `CompiledAvaloniaXaml`，见第 5 节），基准 6/6 通过（`tests/benchmarks/test_module_1a.ps1`）。1B 基准回归通过。
 > 对应版本：v0.1 · 日期：2026-11-01
 
 ---
@@ -112,6 +112,8 @@ UTF-8 编码的合法 JSON。建议结构如下（字段名可在确认阶段调
 
 - 命名空间以 `Avalonia.` 开头 → `skip: true`。
 - 命名空间正好等于 `Avalonia`（无点）→ 同样 `skip: true`（建议一并覆盖，见第 7 节待确认项）。
+- 命名空间正好等于 `CompiledAvaloniaXaml`，或以 `CompiledAvaloniaXaml.` 开头 → `skip: true`（**2026-11-20 修订**：与 CLAUDE.md 的 Avalonia 规则一致。此前 1A 漏了这一条，而 2A 和 1B 都已排除它）。
+- 不应被排除的陷阱：`AvaloniaApp`、`CompiledAvaloniaXamlHelper`、`MyApp.Avalonia` 必须 `skip: false`（只匹配精确名字或点分子命名空间，不做前缀匹配）。
 - 被跳过的类型：其方法与字符串**照常列出**，但 `skip: true`；后续任何模块在任何情况下都不得对其做转换。
 - 大小写：命名空间按**精确大小写**匹配 `Avalonia`（.NET 命名空间区分大小写）。
 
@@ -155,6 +157,8 @@ UTF-8 编码的合法 JSON。建议结构如下（字段名可在确认阶段调
 - [ ] 输出至少包含一条字符串字面量
 - [ ] 所有 `Avalonia.*` 命名空间的条目 `skip: true`
 - [ ] 输出是合法、可解析的 JSON
+- [ ] （2026-11-20 新增）所有 `CompiledAvaloniaXaml` 与 `CompiledAvaloniaXaml.*` 的条目 `skip = true`（`tests/test_files/sample_xaml.dll`，由 `sample_xaml_src.cs` 编译）
+- [ ] （2026-11-20 新增）陷阱命名空间 `AvaloniaApp`、`CompiledAvaloniaXamlHelper`、`MyApp.Avalonia` 的条目 `skip = false`
 
 ---
 
